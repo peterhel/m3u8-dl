@@ -1,24 +1,50 @@
 const request = require('request')
 const url = require('url');
 const path = require('path');
-const fs =require('fs');
-const [, , playlist] = process.argv;
+const fs = require('fs');
+const [, , playlistUrl] = process.argv;
 
-const urlObject = url.parse(playlist);
+const urlObject = url.parse(playlistUrl);
 const urlDirectory = path.dirname(urlObject.path);
-console.log(urlObject);
+
+const playlist = {
+    url: playlistUrl,
+    destination: path.basename(urlObject.path),
+}
+
+function createFolderRecurse(fullpath) {
+    const segments = path.dirname(fullpath).split(path.sep);
+    let current = '/';
+    segments.forEach(s => {
+        current = path.join(current, s);
+        if (!fs.existsSync(current)) {
+            fs.mkdirSync(current);
+            console.log(`Folder ${current} created.`)
+        }
+        //console.log(current);
+    });
+}
 
 function parsePlaylist(text) {
     return text.split('\n').filter(x => /^[^#]/.test(x));
 }
-function download(_url){
-  return new Promise((resolve, reject) => {
-    const filename=path.basename(url.parse(_url).path)
-      request.get(_url).pipe(fs.createWriteStream(filename)).on('close', resolve);
-  })
-  console.log(url);
-  return Promise.resolve();
+
+function download(_url) {
+    const filename = _url.destination
+    createFolderRecurse(path.join(process.cwd(), _url.destination));
+
+    if (fs.existsSync(filename)) {
+        return Promise.resolve(filename);
+    }
+    return new Promise((resolve, reject) => {
+        request.get(_url.url).pipe(fs.createWriteStream(`${filename}.download`)).on('close', () => {
+            fs.renameSync(`${filename}.download`, filename);
+            console.log(filename, 'downloaded');
+            resolve(filename);
+        });
+    })
 }
+
 function fetchPlaylist(url) {
     return new Promise((resolve, reject) => {
         request.get(url, (err, res, body) => {
@@ -30,25 +56,55 @@ function fetchPlaylist(url) {
         });
     })
 }
+let manifest;
+
+function merge() {
+  console.log(manifest)
+    //# ffmpeg -i "playlist-4b2d059e84d01786e91d48717f0f72f89ca5c5f6.m3u8" -c copy "halal_1.ts"
+    const spawn = require('child_process').spawn;
+    const ls = spawn('ffmpeg', ['-i', manifest, '-c', 'copy', `${playlist.destination.replace('m3u8', 'ts')}`]);
+    ls.stdout.pipe(process.stdout);
+    ls.stderr.pipe(process.stderr);
+    return new Promise((resolve, reject) => {
+        console.log('Downloading video stream');
+        ls.on('close', (code) => {
+            console.log(`child process exited with code ${code}`);
+            resolve()
+        });
+        ls.on('error', (code) => {
+            console.error(`child process exited with code ${code}`);
+            reject()
+        });
+    });
+}
 
 function getUrl(endpoint) {
     const newPath = path.resolve(urlDirectory, endpoint);
-    return `${urlObject.protocol}//${urlObject.host}${newPath}`
+    return {
+        url: `${urlObject.protocol}//${urlObject.host}${newPath}`,
+        destination: endpoint
+    }
 }
 
-fetchPlaylist(playlist)
+download(playlist).then(filename => {
+        return parsePlaylist(fs.readFileSync(filename, 'utf8'));
+    })
     .then(data => {
         return getUrl(data[0]);
     })
-    .then(fetchPlaylist)
+    .then(download)
+    .then(filename => {
+        manifest = filename;
+        return parsePlaylist(fs.readFileSync(filename, 'utf8'));
+    })
     .then(tsFiles => {
         let promise = Promise.resolve();
         tsFiles.forEach(x => {
-            promise = promise.then(new Promise((resolve, reject) => {
-                return download(getUrl(x))
-            }))
+            promise = promise.then(() => download(getUrl(x)))
         })
+        return promise;
     })
+    .then(merge)
 
 
 
@@ -56,4 +112,3 @@ fetchPlaylist(playlist)
 //curl "$1" -o lempan.m3u8
 //cat lempan.m3u8 | grep 'BANDWIDTH=4856000' -A1 | tail -n 1
 //
-//# ffmpeg -i "playlist-4b2d059e84d01786e91d48717f0f72f89ca5c5f6.m3u8" -c copy "halal_1.ts"

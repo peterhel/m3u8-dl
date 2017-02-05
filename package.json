@@ -9,6 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "msjs": "1.0.5",
     "request": "2.79.0"
+  },
+  "bin": {
+    "lesmills-dl": "bin/run"
   }
 }

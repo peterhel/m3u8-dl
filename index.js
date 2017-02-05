@@ -2,7 +2,12 @@ const request = require('request')
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
-const [, , playlistUrl] = process.argv;
+const makeSure = require('msjs');
+
+const [, , playlistUrl, destfile] = process.argv;
+
+makeSure({ playlistUrl, destfile }).has('playlistUrl').has('destfile').throw();
+
 
 const urlObject = url.parse(playlistUrl);
 const urlDirectory = path.dirname(urlObject.path);
@@ -59,10 +64,9 @@ function fetchPlaylist(url) {
 let manifest;
 
 function merge() {
-  console.log(manifest)
     //# ffmpeg -i "playlist-4b2d059e84d01786e91d48717f0f72f89ca5c5f6.m3u8" -c copy "halal_1.ts"
     const spawn = require('child_process').spawn;
-    const ls = spawn('ffmpeg', ['-i', manifest, '-c', 'copy', `${playlist.destination.replace('m3u8', 'ts')}`]);
+    const ls = spawn('ffmpeg', ['-i', manifest, '-c', 'copy', `${destfile}`]);
     ls.stdout.pipe(process.stdout);
     ls.stderr.pipe(process.stderr);
     return new Promise((resolve, reject) => {

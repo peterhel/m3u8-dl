@@ -22,6 +22,7 @@ function createFolderRecurse(fullpath) {
     let current = '/';
     segments.forEach(s => {
         current = path.join(current, s);
+        console.log(current);
         if (!fs.existsSync(current)) {
             fs.mkdirSync(current);
             console.log(`Folder ${current} created.`)
@@ -35,6 +36,7 @@ function parsePlaylist(text) {
 }
 
 function download(_url) {
+    console.log(_url);
     const filename = _url.destination
     createFolderRecurse(path.join(process.cwd(), _url.destination));
 
@@ -93,14 +95,14 @@ function getUrl(endpoint) {
 download(playlist).then(filename => {
         return parsePlaylist(fs.readFileSync(filename, 'utf8'));
     })
-    .then(data => {
-        return getUrl(data[0]);
-    })
-    .then(download)
-    .then(filename => {
-        manifest = filename;
-        return parsePlaylist(fs.readFileSync(filename, 'utf8'));
-    })
+    // .then(data => {
+    //     return getUrl(data[0]);
+    // })
+    // .then(download)
+    // .then(filename => {
+    //     manifest = filename;
+    //     return parsePlaylist(fs.readFileSync(filename, 'utf8'));
+    // })
     .then(tsFiles => {
         let promise = Promise.resolve();
         tsFiles.forEach(x => {

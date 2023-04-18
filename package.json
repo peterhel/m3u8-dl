@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "msjs": "1.0.5",
-    "request": "2.79.0"
+    "request": "2.88.2"
   },
   "bin": {
     "m3u8-dl": "bin/run"
